@@ -1,9 +1,6 @@
 services:
   vote:
-    build: 
-      context: ./vote
-      dockerfile: Dockerfile
-      target: dev
+    image: ${DOCKER_USERNAME}/vote:latest
     depends_on:
      redis:
        condition: service_healthy
@@ -19,9 +16,7 @@ services:
       - ./vote:/usr/local/app 
    
   result:
-    build: 
-      context: ./result
-      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME}/result:latest
     depends_on:
       db:
         condition: service_healthy
@@ -31,9 +26,7 @@ services:
       - "8091:80"
 
   worker:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME}/worker:latest
     depends_on:
      redis:
        condition: service_healthy
