@@ -57,7 +57,7 @@ jobs:
         steps:
         - name: Checkout Code 
           uses: actions/checkout@v2 
-          
+
         - name: set up ssh
           uses: webfactory/ssh-agent@v0.5.3
           with:
@@ -66,5 +66,6 @@ jobs:
         - name: copy docker-compose file
           run: scp -o StrictHostKeyChecking=no docker-compose.yaml ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/docker-compose.yaml
 
-
+        - name: run docker-compose up
+          run: ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "cd /home/ubuntu && docker-compose pull && docker-compose up -d"
         
