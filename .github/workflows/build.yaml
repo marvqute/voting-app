@@ -54,7 +54,10 @@ jobs:
     deploy-to-ec2:
         runs-on: ubuntu-latest
         needs: build-and-push
-        steps: 
+        steps:
+        - name: Checkout Code 
+          uses: actions/checkout@v2 
+          
         - name: set up ssh
           uses: webfactory/ssh-agent@v0.5.3
           with:
