@@ -67,5 +67,5 @@ jobs:
           run: scp -o StrictHostKeyChecking=no docker-compose.yaml ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/docker-compose.yaml
 
         - name: run docker-compose up
-          run: ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "cd /home/ubuntu && docker-compose pull && docker-compose up -d"
+          run: ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "cd /home/ubuntu && docker compose pull && docker compose up -d"
         

@@ -1,6 +1,6 @@
 services:
   vote:
-    image: ${DOCKER_USERNAME}/vote:latest
+    image: isrealurephu/vote:latest
     depends_on:
      redis:
        condition: service_healthy
@@ -16,7 +16,7 @@ services:
       - ./vote:/usr/local/app 
    
   result:
-    image: ${DOCKER_USERNAME}/result:latest
+    image: isrealurephu/result:latest
     depends_on:
       db:
         condition: service_healthy
@@ -26,7 +26,7 @@ services:
       - "8091:80"
 
   worker:
-    image: ${DOCKER_USERNAME}/worker:latest
+    image: isrealurephu/worker:latest
     depends_on:
      redis:
        condition: service_healthy
