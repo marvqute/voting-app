@@ -6,18 +6,9 @@ services:
        condition: service_healthy
     ports:
       - "8090:80"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
    
   result:
     image: isrealurephu/result:latest
-    depends_on:
-      db:
-        condition: service_healthy
     volumes:
       - ./result:/usr/local/app
     ports:
@@ -25,11 +16,7 @@ services:
 
   worker:
     image: isrealurephu/worker:latest
-    depends_on:
-     redis:
-       condition: service_healthy
-     db:
-       condition: service_healthy
+     
 
   redis:
     image: redis:latest
@@ -47,13 +34,9 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    volumes:
+    volumes
       - db_data:/var/lib/postgresql/data
-      - "./healthchecks:/healthchecks"
-    healthcheck:
-      test: /healthchecks/postgres.sh
-      interval: "5s"
-
+  
 volumes:
   redis_data:
   db_data:
