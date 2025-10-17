@@ -70,8 +70,23 @@ jobs:
           run: |
             ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
               cd /home/ec2-user
-              docker compose down || true
-              docker compose pull
-              docker compose up -d
+              
+              # Install Docker Compose if not present
+              if ! command -v docker-compose &> /dev/null; then
+                echo "Installing Docker Compose..."
+                sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+                sudo chmod +x /usr/local/bin/docker-compose
+                sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+              fi
+              
+              # Stop existing containers
+              docker-compose down || true
+              
+              # Pull latest images and start services
+              docker-compose pull
+              docker-compose up -d
+              
+              # Show running containers
+              docker ps
             EOF
         
