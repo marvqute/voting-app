@@ -32,7 +32,6 @@ jobs:
                 file: ./vote/Dockerfile
                 push: true
                 tags: ${{ secrets.DOCKER_USERNAME }}/vote:latest
-                target: dev
 
             - name: Build and push result service
               uses: docker/build-push-action@v4
@@ -65,7 +64,7 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
         - name: copy docker-compose file
-          run: scp -o StrictHostKeyChecking=no docker-compose.yaml ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/docker-compose.yaml
+          run: scp -o StrictHostKeyChecking=no docker-compose.prod.yaml ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/docker-compose.yaml
 
         - name: run docker-compose up
           run: ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "cd /home/ubuntu && docker compose pull && docker compose up -d"

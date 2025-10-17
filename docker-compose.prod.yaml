@@ -1,24 +1,24 @@
 services:
   vote:
-    build: ./vote
+    image: marvqute/vote:latest
     environment:
-      - OPTION_A=${OPTION_A}
-      - OPTION_B=${OPTION_B}
+      - OPTION_A=${OPTION_A:-Cats}
+      - OPTION_B=${OPTION_B:-Dogs}
     depends_on:
      redis:
        condition: service_healthy
     ports:
-      - "${VOTE_PORT}:80"
+      - "5000:80"
    
   result:
-    build: ./result
+    image: marvqute/result:latest
     environment:
       - PORT=80
     ports:
-      - "${RESULT_PORT}:80"
+      - "8091:80"
 
   worker:
-    build: ./worker
+    image: marvqute/worker:latest
      
 
   redis:
@@ -35,9 +35,9 @@ services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
     volumes:
       - db_data:/var/lib/postgresql/data
   
