@@ -3,12 +3,7 @@ on:
     push:
         branches:
             - main
-        paths:
-            - result/**
-            - vote/**
-            - worker/**
-            - .github/workflows/build.yaml
-            - docker-compose.yaml
+    workflow_dispatch:
 jobs:
     build-and-push:
         runs-on: ubuntu-latest
