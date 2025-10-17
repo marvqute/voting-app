@@ -59,8 +59,8 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
         - name: copy docker-compose file
-          run: scp -o StrictHostKeyChecking=no docker-compose.prod.yaml ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/docker-compose.yaml
+          run: scp -o StrictHostKeyChecking=no docker-compose.prod.yaml ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/docker-compose.yaml
 
         - name: run docker-compose up
-          run: ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "cd /home/ubuntu && docker compose pull && docker compose up -d"
+          run: ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "cd /home/ec2-user && docker compose pull && docker compose up -d"
         
