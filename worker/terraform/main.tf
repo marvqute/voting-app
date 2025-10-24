@@ -12,30 +12,11 @@ provider "aws" {
   region = "eu-central-1"
 }
 
-# Get a specific Free Tier eligible Amazon Linux 2 AMI
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-2.0.*-x86_64-gp2"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  filter {
-    name   = "state"
-    values = ["available"]
-  }
-
-  filter {
-    name   = "architecture"
-    values = ["x86_64"]
-  }
+# Use a known Free Tier eligible AMI for new accounts
+# This is a specific Amazon Linux 2 AMI that's guaranteed Free Tier eligible
+locals {
+  # Amazon Linux 2 AMI (HVM) - Kernel 5.10, SSD Volume Type - eu-central-1
+  free_tier_ami = "ami-0e7e134863fac4946"
 }
 
 # Security group for voting app
@@ -90,24 +71,14 @@ resource "aws_security_group" "voting_app_sg" {
 
 # EC2 Instance
 resource "aws_instance" "app" {
-  ami           = data.aws_ami.amazon_linux.id
+  ami           = local.free_tier_ami
   instance_type = "t2.micro"
   key_name      = "mykeypair"
   
   vpc_security_group_ids = [aws_security_group.voting_app_sg.id]
   
-  # Ensure Free Tier eligibility
-  monitoring                  = false
-  ebs_optimized              = false
-  instance_initiated_shutdown_behavior = "stop"
-  
-  # Free Tier eligible root volume
-  root_block_device {
-    volume_type           = "gp2"
-    volume_size           = 8
-    delete_on_termination = true
-    encrypted             = false
-  }
+  # Minimal configuration for new Free Tier accounts
+  monitoring = false
   
   tags = {
     Name = "voting-app"
@@ -131,11 +102,7 @@ resource "aws_instance" "app" {
 
 # Outputs
 output "ami_id" {
-  value = data.aws_ami.amazon_linux.id
-}
-
-output "ami_name" {
-  value = data.aws_ami.amazon_linux.name
+  value = local.free_tier_ami
 }
 
 output "security_group_id" {
