@@ -13,10 +13,10 @@ provider "aws" {
 }
 
 # Use a known Free Tier eligible AMI for new accounts
-# This is a specific Amazon Linux 2 AMI that's guaranteed Free Tier eligible
+# Amazon Linux 2023 AMI with kernel-6.1
 locals {
-  # Amazon Linux 2 AMI (HVM) - Kernel 5.10, SSD Volume Type - eu-central-1
-  free_tier_ami = "ami-0a5b0d219e493191b"
+  # Amazon Linux 2023 AMI (HVM) - Kernel 6.1, SSD Volume Type - eu-central-1
+  free_tier_ami = "ami-0e7e134863fac4946"
 }
 
 # Security group for voting app
@@ -86,32 +86,62 @@ resource "aws_instance" "app" {
   
   user_data = <<-EOF
     #!/bin/bash
-    yum update -y
+    set -e  # Exit on any error
     
-    # Install Docker
-    yum install -y docker
+    # Log everything
+    exec > >(tee /var/log/user-data.log) 2>&1
+    
+    echo "Starting user data script for Amazon Linux 2023..."
+    
+    # Update system (Amazon Linux 2023 uses dnf)
+    dnf update -y
+    
+    # Install Docker (Amazon Linux 2023 method)
+    dnf install -y docker
+    
+    # Start and enable Docker
     systemctl start docker
     systemctl enable docker
+    
+    # Add ec2-user to docker group
     usermod -aG docker ec2-user
     
-    # Install Docker Compose
-    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    # Install Docker Compose v2 (newer method)
+    DOCKER_COMPOSE_VERSION="v2.23.0"
+    curl -L "https://github.com/docker/compose/releases/download/$DOCKER_COMPOSE_VERSION/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
     chmod +x /usr/local/bin/docker-compose
+    
+    # Create symbolic link for docker-compose command
+    ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+    
+    # Verify installations
+    echo "Docker version:"
+    docker --version
+    echo "Docker Compose version:"
+    docker-compose --version
+    
+    # Wait for Docker daemon to be ready
+    echo "Waiting for Docker daemon..."
+    until docker info >/dev/null 2>&1; do
+        echo "Waiting for Docker daemon to start..."
+        sleep 5
+    done
     
     # Create app directory
     mkdir -p /home/ec2-user/app
     chown ec2-user:ec2-user /home/ec2-user/app
     
     # Download docker-compose file
+    echo "Downloading docker-compose file..."
     curl -o /home/ec2-user/app/docker-compose.yaml https://raw.githubusercontent.com/marvqute/voting-app/main/docker-compose.prod.yaml
     chown ec2-user:ec2-user /home/ec2-user/app/docker-compose.yaml
     
-    # Wait for Docker to be ready
-    sleep 10
-    
-    # Start the application
+    # Change to app directory and start services
     cd /home/ec2-user/app
-    /usr/local/bin/docker-compose up -d
+    echo "Starting Docker containers..."
+    docker-compose up -d
+    
+    echo "User data script completed successfully!"
   EOF
 }
 
