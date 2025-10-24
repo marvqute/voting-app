@@ -87,15 +87,30 @@ resource "aws_instance" "app" {
   user_data = <<-EOF
     #!/bin/bash
     yum update -y
-    amazon-linux-extras install docker -y
-    service docker start
+    
+    # Install Docker
+    yum install -y docker
+    systemctl start docker
+    systemctl enable docker
     usermod -aG docker ec2-user
-    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-Linux-x86_64" -o /usr/local/bin/docker-compose
+    
+    # Install Docker Compose
+    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     chmod +x /usr/local/bin/docker-compose
+    
+    # Create app directory
     mkdir -p /home/ec2-user/app
+    chown ec2-user:ec2-user /home/ec2-user/app
+    
+    # Download docker-compose file
+    curl -o /home/ec2-user/app/docker-compose.yaml https://raw.githubusercontent.com/marvqute/voting-app/main/docker-compose.prod.yaml
+    chown ec2-user:ec2-user /home/ec2-user/app/docker-compose.yaml
+    
+    # Wait for Docker to be ready
+    sleep 10
+    
+    # Start the application
     cd /home/ec2-user/app
-    curl -o docker-compose.yaml https://raw.githubusercontent.com/marvqute/voting-app/main/docker-compose.prod.yaml
-    sleep 30
     /usr/local/bin/docker-compose up -d
   EOF
 }
