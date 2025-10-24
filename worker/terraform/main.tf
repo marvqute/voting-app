@@ -16,7 +16,7 @@ provider "aws" {
 # This is a specific Amazon Linux 2 AMI that's guaranteed Free Tier eligible
 locals {
   # Amazon Linux 2 AMI (HVM) - Kernel 5.10, SSD Volume Type - eu-central-1
-  free_tier_ami = "ami-0e7e134863fac4946"
+  free_tier_ami = "ami-0a5b0d219e493191b"
 }
 
 # Security group for voting app
@@ -72,7 +72,7 @@ resource "aws_security_group" "voting_app_sg" {
 # EC2 Instance
 resource "aws_instance" "app" {
   ami           = local.free_tier_ami
-  instance_type = "t2.micro"
+  instance_type = "t3.micro"
   key_name      = "mykeypair"
   
   vpc_security_group_ids = [aws_security_group.voting_app_sg.id]
