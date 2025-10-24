@@ -2,6 +2,27 @@ provider "aws" {
   region = "eu-central-1"
 }
 
+# Data source to find the latest Amazon Linux 2023 AMI
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+}
+
 # Security group for voting app
 resource "aws_security_group" "voting_app_sg" {
   name_prefix = "voting-app-sg"
@@ -49,25 +70,47 @@ resource "aws_security_group" "voting_app_sg" {
 }
 
 resource "aws_instance" "voting_app" {
-  ami                    = "ami-0592c673f0b1e7665" # Amazon Linux 2023 AMI (eu-central-1)
-  instance_type          = "t2.micro"
-  key_name              = "mykeypair" # Updated to match your actual key name
+  ami                    = data.aws_ami.amazon_linux.id  # Use latest Amazon Linux 2023 AMI
+  instance_type          = "t2.micro"                     # Free Tier eligible
+  key_name              = "mykeypair" 
   vpc_security_group_ids = [aws_security_group.voting_app_sg.id]
+
+  # Enable detailed monitoring (optional, helps with troubleshooting)
+  monitoring = false
+
+  # Root volume configuration (Free Tier eligible)
+  root_block_device {
+    volume_type = "gp2"
+    volume_size = 8
+    encrypted   = false
+  }
 
   user_data = <<-EOF
               #!/bin/bash
+              # Update system
               sudo dnf update -y
+              
+              # Install Docker
               sudo dnf install -y docker
               sudo systemctl start docker
               sudo systemctl enable docker
               sudo usermod -aG docker ec2-user
+              
+              # Install Docker Compose
               sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
               sudo chmod +x /usr/local/bin/docker-compose
               sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
-              cd /home/ec2-user
-              git clone https://github.com/marvqute/voting-app.git
-              cd voting-app
-              docker-compose -f docker-compose.prod.yaml up -d
+              
+              # Create working directory
+              mkdir -p /home/ec2-user/app
+              cd /home/ec2-user/app
+              
+              # Download production docker-compose file
+              curl -o docker-compose.yaml https://raw.githubusercontent.com/marvqute/voting-app/main/docker-compose.prod.yaml
+              
+              # Wait for Docker to be ready and start applications
+              sleep 30
+              /usr/local/bin/docker-compose up -d
               EOF
 
   tags = {
@@ -78,6 +121,16 @@ resource "aws_instance" "voting_app" {
 output "public_ip" {
   value = aws_instance.voting_app.public_ip
   description = "Public IP address of the voting app instance"
+}
+
+output "instance_id" {
+  value = aws_instance.voting_app.id
+  description = "EC2 instance ID"
+}
+
+output "ami_id" {
+  value = data.aws_ami.amazon_linux.id
+  description = "AMI ID used for the instance"
 }
 
 output "vote_app_url" {
