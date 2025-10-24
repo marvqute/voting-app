@@ -35,7 +35,7 @@ data "aws_ami" "amazon_linux" {
 
 # Security group for voting app
 resource "aws_security_group" "voting_app_sg" {
-  name        = "voting-app-sg"
+  name_prefix = "voting-app-sg-"
   description = "Security group for voting application"
 
   # SSH access
@@ -77,6 +77,10 @@ resource "aws_security_group" "voting_app_sg" {
   tags = {
     Name = "voting-app-security-group"
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # EC2 Instance
@@ -114,6 +118,14 @@ output "ami_id" {
 
 output "ami_name" {
   value = data.aws_ami.amazon_linux.name
+}
+
+output "security_group_id" {
+  value = aws_security_group.voting_app_sg.id
+}
+
+output "security_group_name" {
+  value = aws_security_group.voting_app_sg.name
 }
 
 output "public_ip" {
