@@ -12,14 +12,14 @@ provider "aws" {
   region = "eu-central-1"
 }
 
-# Get the latest Amazon Linux 2 AMI
+# Get a specific Free Tier eligible Amazon Linux 2 AMI
 data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]
 
   filter {
     name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+    values = ["amzn2-ami-hvm-2.0.*-x86_64-gp2"]
   }
 
   filter {
@@ -30,6 +30,11 @@ data "aws_ami" "amazon_linux" {
   filter {
     name   = "state"
     values = ["available"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
   }
 }
 
@@ -85,11 +90,24 @@ resource "aws_security_group" "voting_app_sg" {
 
 # EC2 Instance
 resource "aws_instance" "app" {
-  ami           = data.aws_ami.amazon_linux.id  # Use latest Amazon Linux 2 AMI
+  ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
   key_name      = "mykeypair"
   
   vpc_security_group_ids = [aws_security_group.voting_app_sg.id]
+  
+  # Ensure Free Tier eligibility
+  monitoring                  = false
+  ebs_optimized              = false
+  instance_initiated_shutdown_behavior = "stop"
+  
+  # Free Tier eligible root volume
+  root_block_device {
+    volume_type           = "gp2"
+    volume_size           = 8
+    delete_on_termination = true
+    encrypted             = false
+  }
   
   tags = {
     Name = "voting-app"
