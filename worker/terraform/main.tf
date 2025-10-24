@@ -86,62 +86,94 @@ resource "aws_instance" "app" {
   
   user_data = <<-EOF
     #!/bin/bash
-    set -e  # Exit on any error
     
-    # Log everything
+    # Comprehensive logging
     exec > >(tee /var/log/user-data.log) 2>&1
+    date
+    echo "=== Starting user data script for Amazon Linux 2023 ==="
     
-    echo "Starting user data script for Amazon Linux 2023..."
+    # Function to log and run commands
+    run_cmd() {
+        echo "Running: $*"
+        "$@"
+        local exit_code=$?
+        echo "Exit code: $exit_code"
+        return $exit_code
+    }
     
-    # Update system (Amazon Linux 2023 uses dnf)
-    dnf update -y
+    # Update system
+    echo "=== Updating system ==="
+    run_cmd dnf update -y
     
-    # Install Docker (Amazon Linux 2023 method)
-    dnf install -y docker
+    # Install Docker
+    echo "=== Installing Docker ==="
+    run_cmd dnf install -y docker
     
-    # Start and enable Docker
-    systemctl start docker
-    systemctl enable docker
+    # Start Docker service
+    echo "=== Starting Docker service ==="
+    run_cmd systemctl start docker
+    run_cmd systemctl enable docker
     
     # Add ec2-user to docker group
-    usermod -aG docker ec2-user
+    echo "=== Adding ec2-user to docker group ==="
+    run_cmd usermod -aG docker ec2-user
     
-    # Install Docker Compose v2 (newer method)
+    # Install Docker Compose
+    echo "=== Installing Docker Compose ==="
     DOCKER_COMPOSE_VERSION="v2.23.0"
-    curl -L "https://github.com/docker/compose/releases/download/$DOCKER_COMPOSE_VERSION/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
+    run_cmd curl -L "https://github.com/docker/compose/releases/download/$DOCKER_COMPOSE_VERSION/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+    run_cmd chmod +x /usr/local/bin/docker-compose
     
-    # Create symbolic link for docker-compose command
-    ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+    # Create symlinks
+    echo "=== Creating Docker Compose symlinks ==="
+    run_cmd ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
     
-    # Verify installations
-    echo "Docker version:"
-    docker --version
-    echo "Docker Compose version:"
-    docker-compose --version
+    # Add to PATH for all users
+    echo 'export PATH=$PATH:/usr/local/bin' >> /etc/profile
     
-    # Wait for Docker daemon to be ready
-    echo "Waiting for Docker daemon..."
-    until docker info >/dev/null 2>&1; do
-        echo "Waiting for Docker daemon to start..."
-        sleep 5
+    # Wait for Docker to be ready
+    echo "=== Waiting for Docker daemon ==="
+    for i in {1..30}; do
+        if docker info >/dev/null 2>&1; then
+            echo "Docker daemon is ready!"
+            break
+        fi
+        echo "Waiting for Docker daemon... attempt $i/30"
+        sleep 10
     done
     
-    # Create app directory
-    mkdir -p /home/ec2-user/app
-    chown ec2-user:ec2-user /home/ec2-user/app
+    # Verify installations
+    echo "=== Verifying installations ==="
+    docker --version || echo "Docker version check failed"
+    /usr/local/bin/docker-compose --version || echo "Docker Compose version check failed"
     
-    # Download docker-compose file
-    echo "Downloading docker-compose file..."
-    curl -o /home/ec2-user/app/docker-compose.yaml https://raw.githubusercontent.com/marvqute/voting-app/main/docker-compose.prod.yaml
-    chown ec2-user:ec2-user /home/ec2-user/app/docker-compose.yaml
+    # Create app directory and download compose file
+    echo "=== Setting up application ==="
+    run_cmd mkdir -p /home/ec2-user/app
+    run_cmd chown ec2-user:ec2-user /home/ec2-user/app
     
-    # Change to app directory and start services
-    cd /home/ec2-user/app
-    echo "Starting Docker containers..."
-    docker-compose up -d
+    echo "=== Downloading docker-compose file ==="
+    run_cmd curl -o /home/ec2-user/app/docker-compose.yaml https://raw.githubusercontent.com/marvqute/voting-app/main/docker-compose.prod.yaml
+    run_cmd chown ec2-user:ec2-user /home/ec2-user/app/docker-compose.yaml
     
-    echo "User data script completed successfully!"
+    # Create a startup script for manual execution
+    cat > /home/ec2-user/start-app.sh << 'SCRIPT'
+#!/bin/bash
+export PATH=$PATH:/usr/local/bin
+cd /home/ec2-user/app
+echo "Starting Docker containers..."
+docker-compose down || true
+docker-compose pull
+docker-compose up -d
+echo "Application started!"
+docker-compose ps
+SCRIPT
+    
+    run_cmd chmod +x /home/ec2-user/start-app.sh
+    run_cmd chown ec2-user:ec2-user /home/ec2-user/start-app.sh
+    
+    echo "=== User data script completed ==="
+    date
   EOF
 }
 
