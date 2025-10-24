@@ -72,7 +72,7 @@ resource "aws_security_group" "voting_app_sg" {
 # EC2 Instance
 resource "aws_instance" "app" {
   ami           = local.free_tier_ami
-  instance_type = "t3.micro"
+  instance_type = "t2.micro"
   key_name      = "mykeypair"
   
   vpc_security_group_ids = [aws_security_group.voting_app_sg.id]
