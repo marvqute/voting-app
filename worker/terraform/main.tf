@@ -12,6 +12,27 @@ provider "aws" {
   region = "eu-central-1"
 }
 
+# Get the latest Amazon Linux 2 AMI
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "state"
+    values = ["available"]
+  }
+}
+
 # Security group for voting app
 resource "aws_security_group" "voting_app_sg" {
   name        = "voting-app-sg"
@@ -60,7 +81,7 @@ resource "aws_security_group" "voting_app_sg" {
 
 # EC2 Instance
 resource "aws_instance" "app" {
-  ami           = "ami-0c02fb55956c7d316"  # Amazon Linux 2
+  ami           = data.aws_ami.amazon_linux.id  # Use latest Amazon Linux 2 AMI
   instance_type = "t2.micro"
   key_name      = "mykeypair"
   
@@ -87,6 +108,14 @@ resource "aws_instance" "app" {
 }
 
 # Outputs
+output "ami_id" {
+  value = data.aws_ami.amazon_linux.id
+}
+
+output "ami_name" {
+  value = data.aws_ami.amazon_linux.name
+}
+
 output "public_ip" {
   value = aws_instance.app.public_ip
 }
