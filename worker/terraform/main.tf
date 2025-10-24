@@ -78,10 +78,10 @@ resource "aws_instance" "voting_app" {
   # Enable detailed monitoring (optional, helps with troubleshooting)
   monitoring = false
 
-  # Root volume configuration (Free Tier eligible)
+  # Root volume configuration (Free Tier allows up to 30GB)
   root_block_device {
     volume_type = "gp2"
-    volume_size = 8
+    volume_size = 30  # Minimum required size for Amazon Linux 2023
     encrypted   = false
   }
 
