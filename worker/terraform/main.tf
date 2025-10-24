@@ -2,25 +2,10 @@ provider "aws" {
   region = "eu-central-1"
 }
 
-# Data source to find the latest Amazon Linux 2023 AMI
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["al2023-ami-*-x86_64"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  filter {
-    name   = "architecture"
-    values = ["x86_64"]
-  }
+# Use a known Free Tier eligible AMI for eu-central-1
+locals {
+  # Amazon Linux 2 AMI (Free Tier eligible)
+  ami_id = "ami-0c02fb55956c7d316"
 }
 
 # Security group for voting app
@@ -70,8 +55,8 @@ resource "aws_security_group" "voting_app_sg" {
 }
 
 resource "aws_instance" "voting_app" {
-  ami                    = data.aws_ami.amazon_linux.id  # Use latest Amazon Linux 2023 AMI
-  instance_type          = "t2.micro"                     # Free Tier eligible
+  ami                    = local.ami_id      # Amazon Linux 2 (Free Tier eligible)
+  instance_type          = "t2.micro"       # Free Tier eligible
   key_name              = "mykeypair" 
   vpc_security_group_ids = [aws_security_group.voting_app_sg.id]
 
@@ -81,19 +66,19 @@ resource "aws_instance" "voting_app" {
   # Root volume configuration (Free Tier allows up to 30GB)
   root_block_device {
     volume_type = "gp2"
-    volume_size = 30  # Minimum required size for Amazon Linux 2023
+    volume_size = 8  # Amazon Linux 2 works with 8GB
     encrypted   = false
   }
 
   user_data = <<-EOF
               #!/bin/bash
               # Update system
-              sudo dnf update -y
+              sudo yum update -y
               
               # Install Docker
-              sudo dnf install -y docker
-              sudo systemctl start docker
-              sudo systemctl enable docker
+              sudo amazon-linux-extras install docker -y
+              sudo service docker start
+              sudo chkconfig docker on
               sudo usermod -aG docker ec2-user
               
               # Install Docker Compose
@@ -129,7 +114,7 @@ output "instance_id" {
 }
 
 output "ami_id" {
-  value = data.aws_ami.amazon_linux.id
+  value = local.ami_id
   description = "AMI ID used for the instance"
 }
 
