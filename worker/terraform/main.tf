@@ -1,3 +1,13 @@
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
 provider "aws" {
   region = "eu-central-1"
 }
@@ -55,51 +65,52 @@ resource "aws_security_group" "voting_app_sg" {
 }
 
 resource "aws_instance" "voting_app" {
-  ami                    = local.ami_id      # Amazon Linux 2 (Free Tier eligible)
-  instance_type          = "t2.micro"       # Free Tier eligible
-  key_name              = "mykeypair" 
+  ami                     = local.ami_id
+  instance_type           = "t2.micro"
+  key_name               = "mykeypair"
   vpc_security_group_ids = [aws_security_group.voting_app_sg.id]
 
-  # Enable detailed monitoring (optional, helps with troubleshooting)
+  # Disable detailed monitoring to ensure Free Tier compatibility
   monitoring = false
 
-  # Root volume configuration (Free Tier allows up to 30GB)
+  # Basic root volume
   root_block_device {
     volume_type = "gp2"
-    volume_size = 8  # Amazon Linux 2 works with 8GB
+    volume_size = 8
     encrypted   = false
+    delete_on_termination = true
   }
 
-  user_data = <<-EOF
-              #!/bin/bash
-              # Update system
-              sudo yum update -y
-              
-              # Install Docker
-              sudo amazon-linux-extras install docker -y
-              sudo service docker start
-              sudo chkconfig docker on
-              sudo usermod -aG docker ec2-user
-              
-              # Install Docker Compose
-              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-              sudo chmod +x /usr/local/bin/docker-compose
-              sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
-              
-              # Create working directory
-              mkdir -p /home/ec2-user/app
-              cd /home/ec2-user/app
-              
-              # Download production docker-compose file
-              curl -o docker-compose.yaml https://raw.githubusercontent.com/marvqute/voting-app/main/docker-compose.prod.yaml
-              
-              # Wait for Docker to be ready and start applications
-              sleep 30
-              /usr/local/bin/docker-compose up -d
-              EOF
+  # User data for application setup
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    yum update -y
+    amazon-linux-extras install docker -y
+    service docker start
+    chkconfig docker on
+    usermod -aG docker ec2-user
+    
+    # Install Docker Compose
+    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+    ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+    
+    # Create app directory
+    mkdir -p /home/ec2-user/app
+    cd /home/ec2-user/app
+    
+    # Download docker-compose file
+    curl -o docker-compose.yaml https://raw.githubusercontent.com/marvqute/voting-app/main/docker-compose.prod.yaml
+    
+    # Start services
+    sleep 30
+    docker-compose up -d
+  EOF
+  )
 
   tags = {
     Name = "voting-app-instance"
+    Environment = "production"
   }
 }
 
