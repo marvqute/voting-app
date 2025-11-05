@@ -106,9 +106,14 @@ resource "aws_instance" "app" {
     echo "=== Updating system ==="
     run_cmd yum update -y
     
-    # Install Docker using Amazon Linux Extras
+    # Install Docker (universal method for Amazon Linux)
     echo "=== Installing Docker ==="
-    run_cmd amazon-linux-extras install docker -y
+    # Try amazon-linux-extras first, fallback to direct yum install
+    if command -v amazon-linux-extras >/dev/null 2>&1; then
+        run_cmd amazon-linux-extras install docker -y
+    else
+        run_cmd yum install -y docker
+    fi
     
     # Start Docker service
     echo "=== Starting Docker service ==="
