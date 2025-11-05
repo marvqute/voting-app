@@ -13,10 +13,11 @@ provider "aws" {
 }
 
 # Use a known Free Tier eligible AMI for new accounts
-# Amazon Linux 2023 AMI with kernel-6.1
+# Amazon Linux 2 AMI (guaranteed Free Tier eligible)
 locals {
-  # Amazon Linux 2023 AMI (HVM) - Kernel 6.1, SSD Volume Type - eu-central-1
-  free_tier_ami = "ami-0e7e134863fac4946"
+  # Amazon Linux 2 AMI (HVM) - Kernel 5.10, SSD Volume Type - eu-central-1
+  # This is the standard Free Tier eligible AMI
+  free_tier_ami = "ami-01a612f2c60d80101"
 }
 
 # Security group for voting app
@@ -72,7 +73,7 @@ resource "aws_security_group" "voting_app_sg" {
 # EC2 Instance
 resource "aws_instance" "app" {
   ami           = local.free_tier_ami
-  instance_type = "t2.micro"
+  instance_type = "t3.micro"
   key_name      = "mykeypair"
   
   vpc_security_group_ids = [aws_security_group.voting_app_sg.id]
@@ -90,7 +91,7 @@ resource "aws_instance" "app" {
     # Comprehensive logging
     exec > >(tee /var/log/user-data.log) 2>&1
     date
-    echo "=== Starting user data script for Amazon Linux 2023 ==="
+    echo "=== Starting user data script for Amazon Linux 2 ==="
     
     # Function to log and run commands
     run_cmd() {
@@ -103,11 +104,11 @@ resource "aws_instance" "app" {
     
     # Update system
     echo "=== Updating system ==="
-    run_cmd dnf update -y
+    run_cmd yum update -y
     
-    # Install Docker
+    # Install Docker using Amazon Linux Extras
     echo "=== Installing Docker ==="
-    run_cmd dnf install -y docker
+    run_cmd amazon-linux-extras install docker -y
     
     # Start Docker service
     echo "=== Starting Docker service ==="
