@@ -140,27 +140,60 @@ jobs:
 
               # Install Docker if not present
               if ! command -v docker &> /dev/null; then
-                if [ -f /etc/debian_version ]; then
-                  # Debian/Ubuntu
-                  sudo apt-get update
-                  sudo apt-get install -y docker.io
-                  sudo systemctl start docker
-                  sudo usermod -aG docker ec2-user
-                elif [ -f /etc/redhat-release ]; then
-                  # RHEL/CentOS/AlmaLinux/Rocky
-                  sudo yum update -y
-                  sudo yum install -y docker
-                  sudo systemctl start docker
-                  sudo usermod -aG docker ec2-user
+                echo "Docker not found — attempting installation"
+
+                if [ -f /etc/os-release ]; then
+                  . /etc/os-release
+                  id_lower="${ID,,}"
+                  id_like="${ID_LIKE,,}"
                 else
-                  echo "Unsupported OS for Docker installation"; exit 1
+                  id_lower=""
+                  id_like=""
                 fi
+
+                # Debian/Ubuntu
+                if [[ "$id_lower" == "debian" || "$id_lower" == "ubuntu" || "$id_like" == *"debian"* || "$id_like" == *"ubuntu"* ]]; then
+                  sudo apt-get update -y
+                  sudo apt-get install -y docker.io curl
+                  sudo systemctl enable --now docker || sudo service docker start
+                # Amazon Linux (amzn, amazon) or RHEL/CentOS/Fedora families
+                elif [[ "$id_lower" == "amzn" || "$id_lower" == "amazon" || "$id_like" == *"rhel"* || "$id_like" == *"fedora"* || "$id_like" == *"centos"* ]]; then
+                  sudo yum update -y
+                  # Try yum to install docker package; on Amazon Linux 2 amazon-linux-extras is available,
+                  # but on Amazon Linux 2023 the package may be 'docker' or require dnf/yum with docker
+                  if command -v amazon-linux-extras &> /dev/null; then
+                    sudo amazon-linux-extras install -y docker
+                  else
+                    sudo yum install -y docker || sudo dnf install -y docker || true
+                  fi
+                  # start docker
+                  if command -v systemctl &> /dev/null; then
+                    sudo systemctl enable --now docker || sudo systemctl start docker || true
+                  else
+                    sudo service docker start || true
+                  fi
+                else
+                  # As a last resort use Docker's official convenience script
+                  echo "Unable to detect distro reliably; running get.docker.com"
+                  curl -fsSL https://get.docker.com | sudo sh
+                  if command -v systemctl &> /dev/null; then
+                    sudo systemctl enable --now docker || sudo systemctl start docker || true
+                  else
+                    sudo service docker start || true
+                  fi
+                fi
+
+                # Add the current SSH user to the docker group
+                SSH_USER=$(whoami)
+                sudo usermod -aG docker "$SSH_USER" || true
               fi
 
               # Install Docker Compose if not present
               if ! command -v docker-compose &> /dev/null; then
-                sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-                sudo chmod +x /usr/local/bin/docker-compose
+                echo "Installing docker-compose (standalone binary)"
+                COMPOSE_PATH=/usr/local/bin/docker-compose
+                sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o "$COMPOSE_PATH"
+                sudo chmod +x "$COMPOSE_PATH"
               fi
 
               # Stop existing containers
