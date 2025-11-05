@@ -104,35 +104,6 @@ jobs:
             echo "result_url=$(terraform output -raw result_app_url)" >> $GITHUB_OUTPUT
             echo "=== Outputs completed ==="
 
-    cleanup-terraform:
-        runs-on: ubuntu-latest
-        if: always()
-        needs: [terraform-deploy, deploy-to-ec2]
-        steps:
-        - name: Checkout Code
-          uses: actions/checkout@v2
-
-        - name: Setup Terraform
-          uses: hashicorp/setup-terraform@v2
-          with:
-            terraform_version: 1.5.0
-            terraform_wrapper: false
-
-        - name: Configure AWS credentials
-          uses: aws-actions/configure-aws-credentials@v2
-          with:
-            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            aws-region: eu-central-1
-
-        - name: Terraform Destroy (Optional)
-          working-directory: ./worker/terraform
-          run: |
-            terraform init
-            # Uncomment the next line if you want to destroy resources after deployment
-            # terraform destroy -auto-approve
-            echo "Skipping destroy - remove this line and uncomment above to auto-cleanup"
-
     deploy-to-ec2:
         runs-on: ubuntu-latest
         needs: terraform-deploy
