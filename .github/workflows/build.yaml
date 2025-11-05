@@ -140,10 +140,21 @@ jobs:
 
               # Install Docker if not present
               if ! command -v docker &> /dev/null; then
-                sudo yum update -y
-                sudo amazon-linux-extras install docker -y
-                sudo service docker start
-                sudo usermod -a -G docker ec2-user
+                if [ -f /etc/debian_version ]; then
+                  # Debian/Ubuntu
+                  sudo apt-get update
+                  sudo apt-get install -y docker.io
+                  sudo systemctl start docker
+                  sudo usermod -aG docker ec2-user
+                elif [ -f /etc/redhat-release ]; then
+                  # RHEL/CentOS/AlmaLinux/Rocky
+                  sudo yum update -y
+                  sudo yum install -y docker
+                  sudo systemctl start docker
+                  sudo usermod -aG docker ec2-user
+                else
+                  echo "Unsupported OS for Docker installation"; exit 1
+                fi
               fi
 
               # Install Docker Compose if not present
