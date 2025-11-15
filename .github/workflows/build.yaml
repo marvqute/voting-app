@@ -49,6 +49,8 @@ jobs:
         needs: build-and-push
         outputs:
           ec2_ip: ${{ steps.terraform-output.outputs.public_ip }}
+          eks_cluster_endpoint: ${{ steps.terraform-output.outputs.eks_cluster_endpoint }}
+          eks_cluster_name: ${{ steps.terraform-output.outputs.eks_cluster_name }}
         steps:
         - name: Checkout Code
           uses: actions/checkout@v2
@@ -102,7 +104,79 @@ jobs:
             echo "public_ip=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
             echo "vote_url=$(terraform output -raw vote_app_url)" >> $GITHUB_OUTPUT
             echo "result_url=$(terraform output -raw result_app_url)" >> $GITHUB_OUTPUT
+            echo "eks_cluster_endpoint=$(terraform output -raw eks_cluster_endpoint)" >> $GITHUB_OUTPUT
+            echo "eks_cluster_name=voting-app-cluster" >> $GITHUB_OUTPUT
             echo "=== Outputs completed ==="
+
+    deploy-to-kubernetes:
+        runs-on: ubuntu-latest
+        needs: terraform-deploy
+        steps:
+        - name: Checkout Code
+          uses: actions/checkout@v2
+
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: eu-central-1
+
+        - name: Install kubectl
+          uses: azure/setup-kubectl@v3
+          with:
+            version: 'latest'
+
+        - name: Configure kubectl for EKS
+          run: |
+            aws eks update-kubeconfig --region eu-central-1 --name ${{ needs.terraform-deploy.outputs.eks_cluster_name }}
+
+        - name: Wait for EKS cluster to be ready
+          run: |
+            echo "Waiting for EKS cluster to be ready..."
+            for i in {1..30}; do
+              if kubectl get nodes >/dev/null 2>&1; then
+                echo "EKS cluster is ready!"
+                kubectl get nodes
+                break
+              fi
+              echo "Attempt $i failed, waiting 30 seconds..."
+              sleep 30
+            done
+
+        - name: Update Kubernetes manifests with Docker Hub images
+          run: |
+            # Update image names in deployment files to use Docker Hub images
+            sed -i 's|image: postgres.*|image: postgres:15-alpine|g' k8s/*.yaml || true
+            sed -i 's|image: redis.*|image: redis:7-alpine|g' k8s/*.yaml || true
+            sed -i 's|image: vote.*|image: ${{ secrets.DOCKER_USERNAME }}/vote:latest|g' k8s/*.yaml || true
+            sed -i 's|image: result.*|image: ${{ secrets.DOCKER_USERNAME }}/result:latest|g' k8s/*.yaml || true
+            sed -i 's|image: worker.*|image: ${{ secrets.DOCKER_USERNAME }}/worker:latest|g' k8s/*.yaml || true
+
+        - name: Deploy to Kubernetes
+          run: |
+            echo "Deploying voting application to Kubernetes..."
+            kubectl apply -f k8s/
+            
+            echo "Waiting for deployments to be ready..."
+            kubectl wait --for=condition=available --timeout=300s deployment/vote
+            kubectl wait --for=condition=available --timeout=300s deployment/result
+            kubectl wait --for=condition=available --timeout=300s deployment/worker
+            kubectl wait --for=condition=available --timeout=300s deployment/redis
+            
+            echo "Getting service information..."
+            kubectl get services
+            kubectl get pods
+
+        - name: Get Kubernetes service URLs
+          run: |
+            echo "🎉 Kubernetes deployment completed successfully!"
+            echo "📊 Vote Service:"
+            kubectl get service vote
+            echo "📈 Result Service:"
+            kubectl get service result
+            echo "🔗 To access services, run: kubectl port-forward service/vote 5000:5000"
+            echo "🔗 To access results, run: kubectl port-forward service/result 8091:8091"
 
     deploy-to-ec2:
         runs-on: ubuntu-latest
